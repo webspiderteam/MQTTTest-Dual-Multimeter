@@ -1,0 +1,94 @@
+﻿<Window x:Class="MQTTTest.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:MQTTTest2"
+        mc:Ignorable="d"
+        Title="MQTT Test " Height="399.375" Width="626" Topmost="True" Closing="Window_Closing">
+    <Grid Margin="0,0,-2,0">
+
+        <Button x:Name="btnToggle" Height="25" Width="100" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="10,0,0,5" Click="btnToggle_Click">View Datas</Button>
+        <Button x:Name="btnExport" Height="25" Width="100" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="130,0,0,5" Click="btnExport_Click">Export CSV</Button>
+        <Grid x:Name="grdSettings" Visibility="Visible" >
+            <TextBox x:Name="txtBrokerAdress" HorizontalAlignment="Left" Height="19" Margin="10,26,0,0" TextWrapping="Wrap" Text="localhost" VerticalAlignment="Top" Width="202">
+                <TextBox.Style>
+                    <Style TargetType="{x:Type TextBox}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsChecked, ElementName=chkCreateServer}" Value="True">
+                                <Setter Property="Visibility" Value="Hidden"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBox.Style>
+            </TextBox>
+            <ComboBox x:Name="cmbIPList" HorizontalAlignment="Left" Height="19" Margin="10,26,0,0"  VerticalAlignment="Top" Width="202" >
+                <ComboBox.Style>
+                    <Style TargetType="{x:Type ComboBox}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsChecked, ElementName=chkCreateServer}" Value="False">
+                                <Setter Property="Visibility" Value="Hidden"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ComboBox.Style>
+            </ComboBox>
+            <TextBox x:Name="txtBrokerPort" HorizontalAlignment="Left" Height="19" Margin="269,26,0,0" TextWrapping="Wrap" Text="1883" VerticalAlignment="Top" Width="75"/>
+            <CheckBox x:Name="isEncrypted" Content="Encrypted" HorizontalAlignment="Left" Height="16" FlowDirection="RightToLeft" Margin="221,50,0,0" VerticalAlignment="Top" Width="123"/>
+            <Button x:Name="btnConnect" Content="Connect" HorizontalAlignment="Left" Height="28" Margin="487,97,0,0" VerticalAlignment="Top" Width="109" Click="btnConnect_Click"/>
+            <TextBox x:Name="txtUserName" HorizontalAlignment="Left" Height="19" Margin="396,31,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="202"/>
+            <PasswordBox x:Name="txtPasword" HorizontalAlignment="Left" Height="19" Margin="396,69,0,0" VerticalAlignment="Top" Width="202"/>
+            <TextBlock x:Name="textBlock" HorizontalAlignment="Left" Height="16" Margin="396,53,0,0" TextWrapping="Wrap" Text="Password" VerticalAlignment="Top" Width="200"/>
+            <TextBlock x:Name="textBlock1" HorizontalAlignment="Left" Height="16" Margin="396,15,0,0" TextWrapping="Wrap" Text="UserName" VerticalAlignment="Top" Width="91"/>
+            <TextBlock x:Name="textBlock2" HorizontalAlignment="Left" Height="16" Margin="9,10,0,0" TextWrapping="Wrap" Text="MQTT Server Adress" VerticalAlignment="Top" Width="201"/>
+            <TextBlock x:Name="textBlock3" HorizontalAlignment="Left" Height="16" Margin="271,10,0,0" TextWrapping="Wrap" Text="Port" VerticalAlignment="Top" Width="42"/>
+            <TextBox x:Name="txtClientId" HorizontalAlignment="Left" Height="19" Margin="10,64,0,0" TextWrapping="Wrap" Text="BT_DMM" VerticalAlignment="Top" Width="202"/>
+            <TextBlock x:Name="textBlock1_Copy" HorizontalAlignment="Left" Height="16" Margin="10,48,0,0" TextWrapping="Wrap" Text="Client ID" VerticalAlignment="Top" Width="200"/>
+            <TextBox x:Name="txtTopic" HorizontalAlignment="Left" Height="19" Margin="10,103,0,0" TextWrapping="Wrap" Text="Values" VerticalAlignment="Top" Width="202"/>
+            <TextBlock x:Name="textBlock1_Copy1" HorizontalAlignment="Left" Height="16" Margin="10,87,0,0" TextWrapping="Wrap" Text="Topic" VerticalAlignment="Top" Width="200"/>
+            <CheckBox x:Name="chkUseLogin" Content="Use Login" HorizontalAlignment="Left" Height="16" FlowDirection="RightToLeft" Margin="487,14,0,0" VerticalAlignment="Top" Width="109"/>
+            <ListBox x:Name="listBox1" Margin="10,151,15,36" d:ItemsSource="{d:SampleData ItemCount=5}"/>
+            <Button x:Name="btnPublish" Content="Publish" HorizontalAlignment="Left" Height="28" Margin="233,95,0,0" VerticalAlignment="Top" Width="109" Click="btnPublish_Click"/>
+            <CheckBox x:Name="chkCreateServer" Content="Create Server" HorizontalAlignment="Left" Height="16" FlowDirection="RightToLeft" Margin="472,130,0,0" VerticalAlignment="Top" Width="123" IsChecked="False"/>
+            <Button x:Name="btnTestGlobal" Content="Check Abilities" HorizontalAlignment="Left" Height="28" Margin="361,97,0,0" VerticalAlignment="Top" Width="109" Click="btnTestGlobal_Click"/>
+            <Button x:Name="btnLog" Height="22" Width="90" Content="Start Loging" Margin="0,0,15,8" Click="button_Click" HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+            <TextBlock x:Name="txtLog" Height="22" Width="140" TextWrapping="Wrap" Margin="0,0,110,8" Text="Not Logging right now" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="#FFF70303" Foreground="#FFFBFAFA" Padding="5,2,0,0"/>
+        </Grid>
+        <Grid x:Name="grdDatas" Visibility="Hidden" Margin="0,0,0,0">
+            <ComboBox x:Name="comboBox1" Width="200" Height="22" Margin="55,11,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Select a device"
+          IsEditable="true"  IsReadOnly="true"/>
+            <ComboBox x:Name="comboBox2" Width="200" Height="20" Margin="355,11,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Text="Select a device"
+          IsEditable="true"  IsReadOnly="true"/>
+            <Viewbox Width="250" Height="110" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="40,35,339,220">
+                <Border BorderThickness="2" BorderBrush="Black" Margin="10,10,10,10">
+                    <Canvas Height="105" Width="250">
+                        <Label x:Name="lblValue1"  FontSize="60" HorizontalContentAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Top" Width="189" Canvas.Top="7">test</Label>
+                        <Label x:Name="lblACDC1" FontSize="20" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Top" Width="43" Canvas.Left="185" Height="35" Canvas.Top="23">DC</Label>
+                        <Label x:Name="lblSymbol1" FontSize="20" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Center" Width="48" Canvas.Left="185" Height="35" Canvas.Top="52">mV</Label>
+                    </Canvas>
+                </Border>
+            </Viewbox>
+            <Viewbox Width="250" Height="110" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="340,35,40,220">
+                <Border BorderThickness="2" BorderBrush="Black" Margin="10,10,10,10">
+                    <Canvas Height="105" Width="250">
+                        <Label x:Name="lblValue2"  FontSize="60" HorizontalContentAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Top" Width="189" Canvas.Top="7">test</Label>
+                        <Label x:Name="lblACDC2" FontSize="20" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Top" Width="43" Canvas.Left="185" Height="35" Canvas.Top="23">DC</Label>
+                        <Label x:Name="lblSymbol2" FontSize="20" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Center" Width="48" Canvas.Left="185" Height="35" Canvas.Top="52">mV</Label>
+                    </Canvas>
+                </Border>
+            </Viewbox>
+            <Button x:Name="btnHold" HorizontalAlignment="Left" VerticalAlignment="Top" Width="160" Height="24" Margin="77,150,0,0" Click="btnHold_Click">HOLD</Button>
+            <Button x:Name="btnPick" HorizontalAlignment="Left" VerticalAlignment="Top"  Width="160" Height="24" Margin="360,150,0,0" Click="btnPick_Click">PICK</Button>
+            <DataGrid x:Name="grdData" Margin="28,200,27,37" SelectionChanged="DataGrid_SelectionChanged">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Data No" Binding="{Binding Path=ID}"/>
+                    <DataGridTextColumn Header="1. Value" Binding="{Binding Path=Value1}"/>
+                    <DataGridTextColumn Header="Symbol" Binding="{Binding Path=Symbol1}"/>
+                    <DataGridTextColumn Header="2. Value" Binding="{Binding Path=Value2}"/>
+                    <DataGridTextColumn Header="Symbol" Binding="{Binding Path=Symbol2}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+        </Grid>
+    </Grid>
+</Window>
