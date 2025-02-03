@@ -13,6 +13,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
+using System.Runtime;
 using System.Security.Authentication;
 using System.Text;
 using System.Text.Json;
@@ -24,11 +27,6 @@ using System.Windows.Media;
 
 namespace MQTTTest
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
-    /// 
-
     public partial class MainWindow : Window
     {
 
@@ -41,22 +39,44 @@ namespace MQTTTest
         private static string Password;
         private bool Logging;
         private string time;
-        private static IPAddress ipAddress;
+        private static Dictionary<NetworkInterface, IPAddress> adapterslist;
+        private List<devicesListCls> devicesList = new List<devicesListCls>();
         private bool holded;
-
-        //MqttClient mqttClient;
         public MainWindow()
         {
             InitializeComponent();
-            IPHostEntry ipHostInfo = Dns.GetHostEntry(Dns.GetHostName());
-            ipAddress = ipHostInfo.AddressList[15];
-            cmbIPList.ItemsSource = ipHostInfo.AddressList;
-            cmbIPList.Items.Filter = (item) =>
+            var interfaces = NetworkInterface.GetAllNetworkInterfaces();
+            adapterslist = new Dictionary<NetworkInterface, IPAddress>();
+            foreach (var adapter in interfaces.Where(x => x.OperationalStatus == OperationalStatus.Up))
             {
-                if(((IPAddress)item).AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-                    return true;
-                return false;
-            };
+
+                var props = adapter.GetIPProperties();
+                var result = props.UnicastAddresses.FirstOrDefault(x => x.Address.AddressFamily == AddressFamily.InterNetwork);
+                if (result != null)
+                {
+                    Console.WriteLine("Name: {0}", adapter.Name);
+                    Console.WriteLine("Status: {0}", adapter.OperationalStatus);
+                    Console.WriteLine("MAC: {0}", adapter.GetPhysicalAddress());
+
+                    var ip = result.Address.ToString();
+                    Console.WriteLine("IP Address: {0}", ip);
+
+                    //var x = ((System.Net.NetworkInformation.SystemNetworkInterface)adapter).physicalAddress;
+                    var subnet = result.IPv4Mask.ToString();
+                    Console.WriteLine("Subnet Mask: {0}", subnet);
+                    adapterslist.Add(adapter, result.Address);
+                }
+            }
+            txtPasword.Password = Properties.Settings.Default.Password;
+            cmbIPList.ItemsSource = adapterslist;//.AddressList;
+            cmbIPList.DisplayMemberPath = "Key.Name";
+            var selectItem = adapterslist.FirstOrDefault(item => item.Key.GetPhysicalAddress().ToString() == Properties.Settings.Default.Mac);
+            cmbIPList.SelectedIndex = cmbIPList.Items.IndexOf(selectItem);
+
+            if (Properties.Settings.Default.StartServerAuto)
+            {
+                btnConnect_Click(null, null);
+            }
         }
         public static async Task Run_Server(IPAddress ipAdress, int port, bool UseLogin, string _UserName, string _Password)
         {
@@ -66,9 +86,8 @@ namespace MQTTTest
                                     .WithDefaultEndpointBoundIPV6Address(IPAddress.None)
                                     .WithDefaultEndpoint()
                                     .WithDefaultEndpointPort(port);
-            //.WithApplicationMessageInterceptor(OnNewMessage);//
-            
-               
+
+
             server = new MqttFactory().CreateMqttServer(serverOptions.Build());
             if (UseLogin)
             {
@@ -79,7 +98,6 @@ namespace MQTTTest
                 server.ValidatingConnectionAsync -= Server_ValidatingConnectionAsync;
                 server.ValidatingConnectionAsync += Server_ValidatingConnectionAsync;
             }
-            
             await server.StartAsync();
         }
 
@@ -89,7 +107,7 @@ namespace MQTTTest
             {
                 arg.ReasonCode = MqttConnectReasonCode.BadUserNameOrPassword;
             }
-            
+
             if (arg.Password != Password)
             {
                 arg.ReasonCode = MqttConnectReasonCode.BadUserNameOrPassword;
@@ -115,22 +133,34 @@ namespace MQTTTest
 
         private async void btnConnect_Click(object sender, RoutedEventArgs e)
         {
+            Task task;
             MqttReconnect = false;
             if (chkCreateServer.IsChecked == true)
-                _ = Run_Server((IPAddress)cmbIPList.SelectedItem,Convert.ToInt16(txtBrokerPort.Text),(bool)chkUseLogin.IsChecked,txtUserName.Text,txtPasword.Password);
+            {
+                var item = (KeyValuePair<NetworkInterface, IPAddress>)cmbIPList.SelectedItem;
+                task = Run_Server(item.Value, Convert.ToInt16(txtBrokerPort.Text), (bool)chkUseLogin.IsChecked, txtUserName.Text, txtPasword.Password);
+                if (task.IsCompleted)
+                {
+                    Properties.Settings.Default.Mac = item.Key.GetPhysicalAddress().ToString();
+                    Properties.Settings.Default.Password = txtPasword.Password;
+                }
+
+
+            }
             topic = $"{txtClientId.Text}/{txtTopic.Text}";
             if (client != null && client.IsConnected)
             {
-                await client.DisconnectAsync(MqttClientDisconnectReason.NormalDisconnection);//,"New connection");
+                await client.DisconnectAsync(MqttClientDisconnectReason.NormalDisconnection, "New connection");
                 client.Dispose();
             }
             await Connect();
+            Properties.Settings.Default.Save();
         }
         async Task Connect()
         {
             //var server = "test.mosquitto.org";
             //server = "broker.hivemq.com";
-            var serveradress = (bool)chkCreateServer.IsChecked ? cmbIPList.SelectedItem.ToString() : txtBrokerAdress.Text;
+            var serveradress = (bool)chkCreateServer.IsChecked ? ((KeyValuePair<NetworkInterface, IPAddress>)cmbIPList.SelectedItem).Value.ToString() : txtBrokerAdress.Text;
             var serverport = Convert.ToInt16(txtBrokerPort.Text);
             var mqttFactory = new MqttFactory();
             client = mqttFactory.CreateMqttClient();
@@ -144,8 +174,8 @@ namespace MQTTTest
                 .WithTls(tlsoption)
                 .WithCleanSession();
             if ((bool)chkUseLogin.IsChecked)
-                t_options.WithCredentials(txtUserName.Text,txtPasword.Password);
-            options=t_options.Build();
+                t_options.WithCredentials(txtUserName.Text, txtPasword.Password);
+            options = t_options.Build();
             client.ConnectedAsync -= Client_ConnectedAsync;
             client.DisconnectedAsync -= Client_DisconnectedAsync;
             client.ApplicationMessageReceivedAsync -= Client_ApplicationMessageReceivedAsync;
@@ -160,7 +190,7 @@ namespace MQTTTest
             }
             catch (Exception ex)
             {
-                Console.ForegroundColor=ConsoleColor.Red;
+                Console.ForegroundColor = ConsoleColor.Red;
                 WriteLog("Connection error with " + ex.Message);
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Dispatcher.Invoke(delegate
@@ -176,7 +206,7 @@ namespace MQTTTest
 
         private Task Client_ApplicationMessageReceivedAsync(MqttApplicationMessageReceivedEventArgs arg)
         {
-            var msg = $"received: {Encoding.UTF8.GetString(arg.ApplicationMessage.Payload)} from Topic {arg.ApplicationMessage.Topic}";
+            var msg = $"received: {Encoding.UTF8.GetString(arg.ApplicationMessage.Payload)} from Topic {arg.ApplicationMessage.Topic} at {DateTime.Now}";
             Console.WriteLine(msg);
             var message = Encoding.UTF8.GetString(arg.ApplicationMessage.Payload);
             Dispatcher.Invoke(delegate
@@ -192,9 +222,7 @@ namespace MQTTTest
                     Dictionary<string, JsonElement> user = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(message);
                     if (user.ContainsKey("Status") && user["Status"].GetString() == "Connected" && user["UseMAC"].GetString() == "True")
                     {
-
-
-                        Dispatcher.Invoke(delegate
+                        Dispatcher.Invoke(async delegate
                         {              // we need this construction because the receiving code in the library and the UI with textbox run on different threads
                             Subscribe($"{txtClientId.Text}/{user["MAC"].GetString()}/{txtTopic.Text}");
                             if (!comboBox1.Items.Contains(user["MAC"].GetString())) comboBox1.Items.Add(user["MAC"].GetString());
@@ -222,11 +250,11 @@ namespace MQTTTest
                                     lblValue2.Content = user["ValueS"].GetString();
                                     lblSymbol2.Content = user["Range"].GetString();
                                     lblACDC2.Content = user["Current"].GetString();
-                                } 
+                                }
                             }
                         });
                         if (Logging)
-                            File.AppendAllText("Log_" + time + ".csv", $"{user["Time"].GetString()}, {user["ValueS"].GetString()} , {user["Range"].GetString()}" + System.Environment.NewLine,Encoding.Default);
+                            File.AppendAllText("Log_" + time + ".csv", $"{user["Time"].GetString()}, {user["ValueS"].GetString()} , {user["Range"].GetString()}" + System.Environment.NewLine, Encoding.Default);
                     }
                 }
                 catch (Exception ex)
@@ -234,7 +262,7 @@ namespace MQTTTest
             }
 
             Debug.WriteLine(msg);
-            
+
             return Task.CompletedTask;
         }
 
@@ -269,7 +297,7 @@ namespace MQTTTest
         void Subscribe(string stopic)
         {
             var topicFilter = new MqttTopicFilterBuilder()
-                    .WithTopic(stopic+ "/#")
+                    .WithTopic(stopic + "/#")
                     .Build();
             client.SubscribeAsync(topicFilter);
             var subscribeMsg = "Subscribed topic=" + stopic;
@@ -283,16 +311,15 @@ namespace MQTTTest
 
         private void btnPublish_Click(object sender, RoutedEventArgs e)
         {
-            var msg = "{\"Publish\": \"Test\"}";
-            _ = Publish(msg);
-
+            var msg = "[\"\"Publish\", \"Test\"]";
+            _ = Publish1(msg, txtClientId.Text + "/" + txtTopic.Text);
         }
 
-        async Task Publish(string msg)
+        async Task Publish1(string msg, string topic)
         {
 
             //var userId = txtUser.Text;
-            var topic = $"BT_DMM/Values";
+            //var topic = $"BT_DMM/Values";
             var message = new MqttApplicationMessageBuilder()
                 .WithTopic(topic)
                 .WithPayload(msg)
@@ -302,7 +329,7 @@ namespace MQTTTest
             {
                 await client.PublishAsync(message);
             }
-            var doneMsg = "Message Published:Topic=" + topic + ",Message=" + msg;
+            var doneMsg = "Message Published:Topic=" + topic + ",Message=" + msg + "at " + DateTime.Now;
             WriteLog(doneMsg);
         }
         async Task RunAsync()
@@ -567,5 +594,13 @@ namespace MQTTTest
         {
             return ID + "," + Value1 + "," + Symbol1 + "," + Value2 + "," + Symbol2;
         }
+    }
+
+    internal class devicesListCls
+    {
+        public string HostName { get; set; }
+        public string DeviceName { get; set; }
+        public string WifiIP { get; set; }
+        public string EthernetIP { get; set; }
     }
 }
