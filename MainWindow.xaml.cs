@@ -535,7 +535,7 @@ namespace MQTTTest
         {
             DataItem item = new DataItem
             {
-                ID = grdData.Items.Count,
+                ID = grdData.Items.Count + 1,
                 Value1 = lblValue1.Content.ToString(),
                 Value2 = lblValue2.Content.ToString(),
                 Symbol1 = lblSymbol1.Content.ToString(),
